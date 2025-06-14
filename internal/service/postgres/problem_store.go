@@ -96,7 +96,7 @@ func (pg *PostgresProblemStore) GetProblemByID(id int64) (*Problem, error) {
 	}
 
 	testcaseQuery := `
-	SELECT tc.id, tc.problem_id, tc.input_data, tc.output_data
+	SELECT tc.id, tc.problem_id, tc.input_data, tc.output_data, tc.is_active
 	FROM testcases tc
 	WHERE tc.problem_id = $1 AND tc.is_active = true
 	`
@@ -113,6 +113,7 @@ func (pg *PostgresProblemStore) GetProblemByID(id int64) (*Problem, error) {
 			&testCase.ProblemID,
 			&testCase.InputData,
 			&testCase.OutputData,
+			&testCase.IsActive,
 		)
 		if err != nil {
 			return nil, err
