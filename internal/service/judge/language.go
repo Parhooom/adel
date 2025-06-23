@@ -1,12 +1,13 @@
 package judge
 
 type LanguageConfig struct {
-	Language       string
-	Image          string
-	CompileCommand []string
-	RunCommand     []string
-	FileName       string
-	IsCompiled     bool
+	Language          string
+	Image             string
+	PreCompileCommand []string
+	CompileCommand    []string
+	RunCommand        []string
+	FileName          string
+	IsCompiled        bool
 }
 
 func GetLanguageConfigs() map[string]*LanguageConfig {
@@ -20,12 +21,20 @@ func GetLanguageConfigs() map[string]*LanguageConfig {
 			IsCompiled:     true,
 		},
 		"go": {
-			Language:       "go",
-			Image:          "golang:1.24-alpine",
-			CompileCommand: []string{"go", "build", "-o", "main", "main.go"},
-			RunCommand:     []string{"./main"},
-			FileName:       "main.go",
-			IsCompiled:     true,
+			Language:          "go",
+			Image:             "golang:1.24.4-bookworm",
+			PreCompileCommand: []string{"go", "mod", "init", "adel"},
+			CompileCommand:    []string{"go", "build", "-o", "main", "main.go"},
+			RunCommand:        []string{"./main"},
+			FileName:          "main.go",
+			IsCompiled:        true,
+		},
+		"python": {
+			Language:   "python",
+			Image:      "python:3.12-slim",
+			RunCommand: []string{"python3", "main.py"},
+			FileName:   "main.py",
+			IsCompiled: false,
 		},
 	}
 }
