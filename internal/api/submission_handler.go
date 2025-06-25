@@ -2,6 +2,7 @@ package api
 
 import (
 	"adel/internal/service/postgres"
+	"adel/internal/service/rabbitmq"
 	"adel/internal/utils"
 	"database/sql"
 	"encoding/json"
@@ -11,12 +12,14 @@ import (
 
 type SubmissionHandler struct {
 	submissionStore postgres.SubmissionStore
+	rabbitmqClient  *rabbitmq.RabbitMQClient
 	logger          *log.Logger
 }
 
-func NewSubmissionHandler(submissionStore postgres.SubmissionStore, logger *log.Logger) *SubmissionHandler {
+func NewSubmissionHandler(submissionStore postgres.SubmissionStore, rabbitmqClient *rabbitmq.RabbitMQClient, logger *log.Logger) *SubmissionHandler {
 	return &SubmissionHandler{
 		submissionStore: submissionStore,
+		rabbitmqClient:  rabbitmqClient,
 		logger:          logger,
 	}
 }
@@ -39,6 +42,13 @@ func (sh *SubmissionHandler) HandleCreateSubmission(w http.ResponseWriter, r *ht
 	if err != nil {
 		sh.logger.Printf("ERROR: createSubmission: %v", err)
 		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "failed to create submission"})
+		return
+	}
+
+	err = sh.rabbitmqClient.PublishSubmissionID(createdSubmission.ID)
+	if err != nil {
+		sh.logger.Printf("ERROR: publishSubmissionID: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "failed to publish submission ID"})
 		return
 	}
 

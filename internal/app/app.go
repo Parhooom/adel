@@ -2,7 +2,9 @@ package app
 
 import (
 	"adel/internal/api"
+	"adel/internal/service/judge"
 	"adel/internal/service/postgres"
+	"adel/internal/service/rabbitmq"
 	"adel/internal/utils"
 	"adel/migrations"
 
@@ -17,6 +19,9 @@ type Application struct {
 	DB                *sql.DB
 	ProblemHandler    *api.ProblemHandler
 	SubmissionHandler *api.SubmissionHandler
+	JudgeService      *judge.JudgeService
+	RabbitMQClient    *rabbitmq.RabbitMQClient
+	RabbitMQWorkers   *rabbitmq.Worker
 }
 
 func NewApplication() (*Application, error) {
@@ -32,19 +37,28 @@ func NewApplication() (*Application, error) {
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
+	dockerClient := judge.NewDockerClient(logger)
+	judgeService := judge.NewJudge(dockerClient, logger)
+	rabbitmqClient := rabbitmq.Open(logger)
+
 	// stores
 	problemStore := postgres.NewPostgresProblemStore(pgDB)
 	submissionStore := postgres.NewPostgresSubmissionStore(pgDB)
 
 	// handlers
 	problemHandler := api.NewProblemHandler(problemStore, logger)
-	submissionHandler := api.NewSubmissionHandler(submissionStore, logger)
+	submissionHandler := api.NewSubmissionHandler(submissionStore, rabbitmqClient, logger)
+
+	rabbitmqWorkers := rabbitmq.NewRabbitMQWorker(rabbitmqClient, submissionStore, problemStore, 3, judgeService, logger)
 
 	app := &Application{
 		Logger:            logger,
 		DB:                pgDB,
 		ProblemHandler:    problemHandler,
 		SubmissionHandler: submissionHandler,
+		JudgeService:      judgeService,
+		RabbitMQClient:    rabbitmqClient,
+		RabbitMQWorkers:   rabbitmqWorkers,
 	}
 
 	return app, nil

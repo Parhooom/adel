@@ -31,8 +31,6 @@ func NewJudge(dockerClient *DockerClient, logger *log.Logger) *JudgeService {
 }
 
 func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.Problem) error {
-	j.logger.Printf("Starting judge for submission %d", submission.ID)
-
 	submission.Status = "running"
 	var pidLimit int64 = 100
 
@@ -75,8 +73,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 		return fmt.Errorf("failed to create container: %w", err)
 	}
 
-	j.logger.Printf("Created container %s", res.ID)
-
 	codeTar, err := makeTar(submission.Code, languageConfig.FileName)
 	if err != nil {
 		submission.Status = "internal_error"
@@ -91,8 +87,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 		return fmt.Errorf("failed to copy code to container: %w", err)
 	}
 
-	j.logger.Printf("Copied code to container %s", res.ID)
-
 	err = j.dockerClient.client.ContainerStart(ctx, res.ID, container.StartOptions{})
 	if err != nil {
 		submission.Status = "internal_error"
@@ -101,8 +95,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 	}
 
 	defer j.dockerClient.client.ContainerRemove(ctx, res.ID, container.RemoveOptions{Force: true})
-
-	j.logger.Printf("Started container %s", res.ID)
 
 	if len(languageConfig.PreCompileCommand) > 0 {
 		_, err := j.runCommand(ctx, res.ID, languageConfig.PreCompileCommand, nil)
@@ -134,8 +126,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 	submission.MemoryUsageMB = 0
 	submission.Status = "accepted"
 
-	j.logger.Printf("Running test cases for submission %d", submission.ID)
-
 	for _, testCase := range problem.TestCases {
 		if !testCase.IsActive {
 			continue
@@ -145,8 +135,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 
 		testCtx, cancel := context.WithTimeout(ctx, timeout+2*time.Second)
 		defer cancel()
-
-		j.logger.Printf("Running test case %d", testCase.ID)
 
 		result, err := j.runCommand(testCtx, res.ID, languageConfig.RunCommand, []byte(testCase.InputData))
 
@@ -162,8 +150,6 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 			submission.ErrorMessage = fmt.Sprintf("failed to run test case: %v", err)
 			return fmt.Errorf("failed to run test case: %w", err)
 		}
-
-		j.logger.Printf("Test case %d ran in %dms", testCase.ID, result.Duration.Milliseconds())
 
 		// maximum execution time between all testcases
 		executionTimeMs := result.Duration.Milliseconds()
@@ -200,11 +186,8 @@ func (j *JudgeService) Judge(submission *postgres.Submission, problem *postgres.
 			return nil
 		}
 
-		j.logger.Printf("Test case %d passed", testCase.ID)
 		cancel()
 	}
-
-	j.logger.Printf("All test cases passed for submission %d", submission.ID)
 
 	return nil
 }
@@ -216,14 +199,13 @@ type RunCommandResult struct {
 	Duration time.Duration
 }
 
-func (j *JudgeService) runCommand(ctx context.Context, containerID string, cmd []string, input []byte) (RunCommandResult, error) {
-	result := RunCommandResult{}
+func (j *JudgeService) runCommand(ctx context.Context, containerID string, cmd []string, input []byte) (*RunCommandResult, error) {
+	result := &RunCommandResult{}
 	startTime := time.Now()
 	defer func() {
 		result.Duration = time.Since(startTime)
 	}()
 
-	j.logger.Printf("container exec create: cmd: %v, containerID: %s", cmd, containerID)
 	exec, err := j.dockerClient.client.ContainerExecCreate(ctx, containerID, container.ExecOptions{
 		Cmd:          cmd,
 		WorkingDir:   "/app",
@@ -232,54 +214,43 @@ func (j *JudgeService) runCommand(ctx context.Context, containerID string, cmd [
 		AttachStderr: true,
 	})
 	if err != nil {
-		return result, fmt.Errorf("failed to create exec: %w", err)
+		return nil, fmt.Errorf("failed to create exec: %w", err)
 	}
-	j.logger.Printf("container exec created: execID: %s", exec.ID)
 
-	j.logger.Printf("container exec attach: execID: %s", exec.ID)
 	res, err := j.dockerClient.client.ContainerExecAttach(ctx, exec.ID, container.ExecAttachOptions{})
 	if err != nil {
-		return result, fmt.Errorf("failed to attach to exec: %w", err)
+		return nil, fmt.Errorf("failed to attach to exec: %w", err)
 	}
 	defer res.Close()
-	j.logger.Printf("container exec attached: execID: %s", exec.ID)
 
-	j.logger.Printf("container exec set deadline: execID: %s", exec.ID)
 	deadline, ok := ctx.Deadline()
 	if ok {
 		res.Conn.SetDeadline(deadline)
 	}
 
-	j.logger.Printf("container exec write input: execID: %s", exec.ID)
 	if input != nil {
 		_, err = res.Conn.Write(input)
 		if err != nil {
-			return result, fmt.Errorf("failed to write input to exec: %w", err)
+			return nil, fmt.Errorf("failed to write input to exec: %w", err)
 		}
 		err = res.CloseWrite()
 		if err != nil {
-			return result, fmt.Errorf("failed to close write: %w", err)
+			return nil, fmt.Errorf("failed to close write: %w", err)
 		}
 	}
-	j.logger.Printf("container exec wrote input: execID: %s", exec.ID)
 
-	j.logger.Printf("container exec inspect: execID: %s", exec.ID)
 	inspect, err := j.dockerClient.client.ContainerExecInspect(ctx, exec.ID)
 	if err != nil {
-		return result, fmt.Errorf("failed to inspect exec: %w", err)
+		return nil, fmt.Errorf("failed to inspect exec: %w", err)
 	}
-	j.logger.Printf("container exec inspect: execID: %s, exitCode: %d", exec.ID, inspect.ExitCode)
 
 	var stdout, stderr bytes.Buffer
 
-	j.logger.Printf("container exec demux stream: execID: %s", exec.ID)
 	err = demuxDockerStream(res.Reader, &stdout, &stderr)
 	if err != nil {
-		return result, fmt.Errorf("failed to demux stream: %w", err)
+		return nil, fmt.Errorf("failed to demux stream: %w", err)
 	}
-	j.logger.Printf("container exec demuxed stream: execID: %s", exec.ID)
 
-	j.logger.Printf("container exec stdout: execID: %s, stdout: %s", exec.ID, result.Stdout)
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 	result.ExitCode = inspect.ExitCode

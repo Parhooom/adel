@@ -21,6 +21,9 @@ func main() {
 	}
 	defer app.DB.Close()
 
+	app.RabbitMQWorkers.Start()
+	defer app.RabbitMQWorkers.Stop()
+
 	r := routes.SetupRoutes(app)
 
 	server := http.Server{

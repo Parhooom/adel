@@ -1,0 +1,280 @@
+###
+POST http://localhost:8080/problems
+Content-Type: application/json
+
+{
+  "title": "Simple Addition",
+  "description": "Write a program that reads two integers and outputs their sum.\n\nInput: Two space-separated integers a and b (1 ≤ a, b ≤ 1000)\nOutput: The sum of a and b",
+  "difficulty": "easy",
+  "time_limit_ms": 3000,
+  "memory_limit_mb": 256,
+  "is_active": true,
+  "test_cases": [
+    {
+      "input_data": "1 2",
+      "output_data": "3",
+      "is_active": true
+    },
+    {
+      "input_data": "2 3",
+      "output_data": "5",
+      "is_active": true
+    },
+    {
+      "input_data": "10 15",
+      "output_data": "25",
+      "is_active": true
+    }
+  ]
+}
+
+###
+POST http://localhost:8080/problems
+Content-Type: application/json
+
+{
+  "title": "Even or Odd",
+  "description": "Write a program that determines if a given number is even or odd.\n\nInput: A single integer n (1 ≤ n ≤ 100)\nOutput: 'Even' if the number is even, 'Odd' if the number is odd",
+  "difficulty": "easy",
+  "time_limit_ms": 2000,
+  "memory_limit_mb": 128,
+  "is_active": true,
+  "test_cases": [
+    {
+      "input_data": "4",
+      "output_data": "Even",
+      "is_active": true
+    },
+    {
+      "input_data": "7",
+      "output_data": "Odd",
+      "is_active": true
+    },
+    {
+      "input_data": "100",
+      "output_data": "Even",
+      "is_active": true
+    }
+  ]
+}
+
+###
+POST http://localhost:8080/problems
+Content-Type: application/json
+
+{
+  "title": "Find Maximum",
+  "description": "Given an array of integers, find and output the maximum value.\n\nInput: First line contains n (1 ≤ n ≤ 100), the number of elements. Second line contains n space-separated integers.\nOutput: The maximum value in the array",
+  "difficulty": "easy",
+  "time_limit_ms": 3000,
+  "memory_limit_mb": 256,
+  "is_active": true,
+  "test_cases": [
+    {
+      "input_data": "3\n5 2 8",
+      "output_data": "8",
+      "is_active": true
+    },
+    {
+      "input_data": "5\n1 9 3 7 2",
+      "output_data": "9",
+      "is_active": true
+    },
+    {
+      "input_data": "1\n42",
+      "output_data": "42",
+      "is_active": true
+    }
+  ]
+}
+
+###
+GET http://localhost:8080/problems/1
+
+
+###
+PUT http://localhost:8080/problems/4
+Content-Type: application/json
+
+{
+  "title": "Simple Addition",
+  "description": "Write a program that reads two integers and outputs their sum.\n\nInput: Two space-separated integers a and b (1 ≤ a, b ≤ 1000)\nOutput: The sum of a and b",
+  "difficulty": "easy",
+  "time_limit_ms": 3000,
+  "memory_limit_mb": 256,
+  "is_active": true,
+  "test_cases": [
+    {
+      "input_data": "1 2",
+      "output_data": "3",
+      "is_active": true
+    },
+    {
+      "input_data": "2 3",
+      "output_data": "5",
+      "is_active": true
+    },
+    {
+      "input_data": "10 15",
+      "output_data": "25",
+      "is_active": true
+    },
+    {
+      "input_data": "50 75",
+      "output_data": "125",
+      "is_active": true
+    }
+  ]
+}
+
+###
+PUT http://localhost:8080/problems/1
+Content-Type: application/json
+
+{
+  "time_limit_ms": 1500
+}
+
+###
+PUT http://localhost:8080/problems/3
+Content-Type: application/json
+
+{
+  "is_active": false
+}
+
+###
+DELETE http://localhost:8080/problems/3
+
+
+
+### Submission API Endpoints
+
+### Submit C solution for Simple Addition (Problem 1)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 1,
+  "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}",
+  "language": "c"
+}
+
+###
+
+### Submit Python solution for Even or Odd (Problem 2)  
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 2,
+  "code": "n = int(input())\nif n % 2 == 0:\n    print('Even')\nelse:\n    print('Odd')",
+  "language": "python"
+}
+
+###
+
+### Submit Go solution for Find Maximum (Problem 3)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 3,
+  "code": "package main\n\nimport (\n\t\"fmt\"\n)\n\nfunc main() {\n\tvar n int\n\tfmt.Scan(&n)\n\t\n\tmax := -1000000\n\tfor i := 0; i < n; i++ {\n\t\tvar num int\n\t\tfmt.Scan(&num)\n\t\tif num > max {\n\t\t\tmax = num\n\t\t}\n\t}\n\t\n\tfmt.Println(max)\n}",
+  "language": "go"
+}
+
+###
+
+### Submit Python solution for Simple Addition (Problem 1)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 1,
+  "code": "a, b = map(int, input().split())\nprint(a + b)",
+  "language": "python"
+}
+
+###
+
+### Submit Go solution for Even or Odd (Problem 2)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 2,
+  "code": "package main\n\nimport (\n\t\"fmt\"\n)\n\nfunc main() {\n\tvar n int\n\tfmt.Scan(&n)\n\t\n\tif n%2 == 0 {\n\t\tfmt.Println(\"Even\")\n\t} else {\n\t\tfmt.Println(\"Odd\")\n\t}\n}",
+  "language": "go"
+}
+
+###
+
+### Submit C solution for Find Maximum (Problem 3)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 3,
+  "code": "#include <stdio.h>\nint main() {\n    int n, i, num, max = -1000000;\n    scanf(\"%d\", &n);\n    \n    for (i = 0; i < n; i++) {\n        scanf(\"%d\", &num);\n        if (num > max) {\n            max = num;\n        }\n    }\n    \n    printf(\"%d\\n\", max);\n    return 0;\n}",
+  "language": "c"
+}
+
+###
+
+### Submit wrong solution (should get Wrong Answer)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 1,
+  "code": "a, b = map(int, input().split())\nprint(a - b)",
+  "language": "python"
+}
+
+###
+
+### Submit solution with compilation error
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 1,
+  "code": "#include <stdio.h>\nint main() {\n    int a, b\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}",
+  "language": "c"
+}
+
+###
+
+### Submit solution that will timeout (infinite loop)
+POST http://localhost:8080/submissions
+Content-Type: application/json
+
+{
+  "problem_id": 1,
+  "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    while(1) {}\n    printf(\"%d\\n\", a + b);\n    return 0;\n}",
+  "language": "c"
+}
+
+###
+
+### Get submission by ID
+GET http://localhost:8080/submissions/1
+
+###
+
+### Get another submission by ID
+GET http://localhost:8080/submissions/2
+
+###
+
+### Delete a submission
+DELETE http://localhost:8080/submissions/1
+
+###
+
+### Try to get non-existent submission
+GET http://localhost:8080/submissions/999
+
+
+
