@@ -1,10 +1,12 @@
 package api
 
 import (
+	"adel/internal/middleware"
 	"adel/internal/service/postgres"
 	"adel/internal/utils"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 )
@@ -52,6 +54,14 @@ func (ph *ProblemHandler) HandleCreateProblem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	currentUser := middleware.GetUser(r)
+	if currentUser == nil || currentUser.IsAnonymous() {
+		utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be logged in to create a problem"})
+		return
+	}
+
+	problem.UserID = currentUser.ID
+
 	createdProblem, err := ph.problemStore.CreateProblem(&problem)
 	if err != nil {
 		ph.logger.Printf("ERROR: createProblem: %v", err)
@@ -67,6 +77,28 @@ func (ph *ProblemHandler) HandleDeleteProblemByID(w http.ResponseWriter, r *http
 	if err != nil {
 		ph.logger.Printf("ERROR: readIDParam: %v", err)
 		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "invalid problem id"})
+		return
+	}
+
+	currentUser := middleware.GetUser(r)
+	if currentUser == nil || currentUser.IsAnonymous() {
+		utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be logged in to delete a problem"})
+		return
+	}
+
+	problemOwner, err := ph.problemStore.GetProblemOwner(problemID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.WriteJSON(w, http.StatusNotFound, utils.Envelope{"error": "problem does not exist"})
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	if problemOwner != currentUser.ID {
+		utils.WriteJSON(w, http.StatusForbidden, utils.Envelope{"error": "you are not allowed to delete this problem"})
 		return
 	}
 
@@ -110,7 +142,7 @@ func (ph *ProblemHandler) HandleUpdateProblemByID(w http.ResponseWriter, r *http
 		TimeLimit   *int                `json:"time_limit_ms"`
 		MemoryLimit *int                `json:"memory_limit_mb"`
 		IsActive    *bool               `json:"is_active"`
-		TestCases   []postgres.TestCase `json:"test_cases"`
+		TestCases   []postgres.TestCase `json:"testcases"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateProblemRequest)
@@ -142,6 +174,17 @@ func (ph *ProblemHandler) HandleUpdateProblemByID(w http.ResponseWriter, r *http
 		existingProblem.TestCases = updateProblemRequest.TestCases
 	}
 
+	currentUser := middleware.GetUser(r)
+	if currentUser == nil || currentUser.IsAnonymous() {
+		utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be logged in to create a problem"})
+		return
+	}
+
+	if currentUser.ID != existingProblem.UserID {
+		utils.WriteJSON(w, http.StatusForbidden, utils.Envelope{"error": "you are not allowed to update this problem"})
+		return
+	}
+
 	err = ph.problemStore.UpdateProblem(existingProblem)
 	if err != nil {
 		ph.logger.Printf("ERROR: updatingProblem: %v", err)
@@ -150,4 +193,15 @@ func (ph *ProblemHandler) HandleUpdateProblemByID(w http.ResponseWriter, r *http
 	}
 
 	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"problem": existingProblem})
+}
+
+func (ph *ProblemHandler) HandleGetAllProblems(w http.ResponseWriter, r *http.Request) {
+	problems, err := ph.problemStore.GetAllProblems()
+	if err != nil {
+		ph.logger.Printf("ERROR: GetAllProblems: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"problems": problems})
 }

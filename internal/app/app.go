@@ -2,6 +2,7 @@ package app
 
 import (
 	"adel/internal/api"
+	"adel/internal/middleware"
 	"adel/internal/service/judge"
 	"adel/internal/service/postgres"
 	"adel/internal/service/rabbitmq"
@@ -19,6 +20,9 @@ type Application struct {
 	DB                *sql.DB
 	ProblemHandler    *api.ProblemHandler
 	SubmissionHandler *api.SubmissionHandler
+	UserHandler       *api.UserHandler
+	TokenHandler      *api.TokenHandler
+	UserMiddleware    *middleware.UserMiddleware
 	JudgeService      *judge.JudgeService
 	RabbitMQClient    *rabbitmq.RabbitMQClient
 	RabbitMQWorkers   *rabbitmq.Worker
@@ -44,10 +48,17 @@ func NewApplication() (*Application, error) {
 	// stores
 	problemStore := postgres.NewPostgresProblemStore(pgDB)
 	submissionStore := postgres.NewPostgresSubmissionStore(pgDB)
+	userStore := postgres.NewPostgresUserStore(pgDB)
+	tokenStore := postgres.NewPostgresTokenStore(pgDB)
 
 	// handlers
 	problemHandler := api.NewProblemHandler(problemStore, logger)
 	submissionHandler := api.NewSubmissionHandler(submissionStore, rabbitmqClient, logger)
+	userHandler := api.NewUserHandler(userStore, logger)
+	tokenHandler := api.NewTokenHandler(tokenStore, userStore, logger)
+
+	// middlewares
+	userMiddleware := &middleware.UserMiddleware{UserStore: userStore}
 
 	rabbitmqWorkers := rabbitmq.NewRabbitMQWorker(rabbitmqClient, submissionStore, problemStore, 3, judgeService, logger)
 
@@ -56,6 +67,9 @@ func NewApplication() (*Application, error) {
 		DB:                pgDB,
 		ProblemHandler:    problemHandler,
 		SubmissionHandler: submissionHandler,
+		UserHandler:       userHandler,
+		TokenHandler:      tokenHandler,
+		UserMiddleware:    userMiddleware,
 		JudgeService:      judgeService,
 		RabbitMQClient:    rabbitmqClient,
 		RabbitMQWorkers:   rabbitmqWorkers,

@@ -7,6 +7,7 @@ import (
 
 type Submission struct {
 	ID              int64     `json:"id"`
+	UserID          int64     `json:"user_id"`
 	ProblemID       int64     `json:"problem_id"`
 	Code            string    `json:"code"`
 	Language        string    `json:"language"`
@@ -31,6 +32,7 @@ type SubmissionStore interface {
 	GetSubmissionByID(id int64) (*Submission, error)
 	DeleteSubmission(id int64) error
 	UpdateSubmission(submission *Submission) error
+	GetSubmissionOwner(submissionID int64) (int64, error)
 }
 
 func (pg *PostgresSubmissionStore) CreateSubmission(submission *Submission) (*Submission, error) {
@@ -41,12 +43,12 @@ func (pg *PostgresSubmissionStore) CreateSubmission(submission *Submission) (*Su
 	defer tx.Rollback()
 
 	query := `
-	INSERT INTO submissions (problem_id, code, language, status, execution_time_ms, memory_usage_mb, error_message)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO submissions (user_id, problem_id, code, language, status, execution_time_ms, memory_usage_mb, error_message)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id
 	`
 
-	err = tx.QueryRow(query, submission.ProblemID, submission.Code, submission.Language, submission.Status, submission.ExecutionTimeMs, submission.MemoryUsageMB, submission.ErrorMessage).Scan(&submission.ID)
+	err = tx.QueryRow(query, submission.UserID, submission.ProblemID, submission.Code, submission.Language, submission.Status, submission.ExecutionTimeMs, submission.MemoryUsageMB, submission.ErrorMessage).Scan(&submission.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +65,11 @@ func (pg *PostgresSubmissionStore) GetSubmissionByID(id int64) (*Submission, err
 	submission := &Submission{}
 
 	query := `
-	SELECT id, problem_id, code, language, status, execution_time_ms, memory_usage_mb, error_message, created_at, updated_at
+	SELECT id, user_id, problem_id, code, language, status, execution_time_ms, memory_usage_mb, error_message, created_at, updated_at
 	FROM submissions
 	WHERE id = $1
 	`
-	err := pg.db.QueryRow(query, id).Scan(&submission.ID, &submission.ProblemID, &submission.Code, &submission.Language, &submission.Status, &submission.ExecutionTimeMs, &submission.MemoryUsageMB, &submission.ErrorMessage, &submission.CreatedAt, &submission.UpdatedAt)
+	err := pg.db.QueryRow(query, id).Scan(&submission.ID, &submission.UserID, &submission.ProblemID, &submission.Code, &submission.Language, &submission.Status, &submission.ExecutionTimeMs, &submission.MemoryUsageMB, &submission.ErrorMessage, &submission.CreatedAt, &submission.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -118,4 +120,21 @@ func (pg *PostgresSubmissionStore) UpdateSubmission(submission *Submission) erro
 	}
 
 	return nil
+}
+
+func (pg *PostgresSubmissionStore) GetSubmissionOwner(submissionID int64) (int64, error) {
+	var userID int64
+
+	query := `
+  SELECT user_id
+  FROM submissions
+  WHERE id = $1
+  `
+
+	err := pg.db.QueryRow(query, submissionID).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"adel/internal/middleware"
 	"adel/internal/service/postgres"
 	"adel/internal/service/rabbitmq"
 	"adel/internal/utils"
@@ -32,6 +33,14 @@ func (sh *SubmissionHandler) HandleCreateSubmission(w http.ResponseWriter, r *ht
 		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "invalid request sent"})
 		return
 	}
+
+	currentUser := middleware.GetUser(r)
+	if currentUser == nil || currentUser.IsAnonymous() {
+		utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be logged in to create a submission"})
+		return
+	}
+
+	submission.UserID = currentUser.ID
 
 	submission.Status = "pending"
 	submission.ExecutionTimeMs = 0
