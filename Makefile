@@ -25,3 +25,7 @@ migrate-reset:
 .PHONY: migrate-status
 migrate-status:
 	goose -dir $(MIGRATION_DIR) postgres $(DATABASE_URL) status
+
+.PHONY: swagger
+swagger:
+	swag init -g main.go --output docs
