@@ -30,6 +30,7 @@ type ProblemSummary struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Difficulty  string `json:"difficulty"`
+	IsActive    bool   `json:"is_active"`
 }
 
 type PostgresProblemStore struct {
@@ -47,6 +48,9 @@ type ProblemStore interface {
 	UpdateProblem(problem *Problem) error
 	GetProblemOwner(problemID int64) (int64, error)
 	GetAllProblems() ([]ProblemSummary, error)
+	GetTotalProblemsCount() (int, error)
+	GetActiveProblemsCount() (int, error)
+	GetAllProblemsForAdmin() ([]ProblemSummary, error)
 }
 
 func (pg *PostgresProblemStore) CreateProblem(problem *Problem) (*Problem, error) {
@@ -228,7 +232,7 @@ func (pg *PostgresProblemStore) GetAllProblems() ([]ProblemSummary, error) {
 	problems := []ProblemSummary{}
 
 	query := `
-	SELECT p.id, p.title, p.description, p.difficulty
+	SELECT p.id, p.title, p.description, p.difficulty, p.is_active
 	FROM problems p
 	WHERE p.is_active = true
 	`
@@ -246,6 +250,67 @@ func (pg *PostgresProblemStore) GetAllProblems() ([]ProblemSummary, error) {
 			&problem.Title,
 			&problem.Description,
 			&problem.Difficulty,
+			&problem.IsActive,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		problems = append(problems, problem)
+	}
+
+	return problems, nil
+}
+
+func (pg *PostgresProblemStore) GetTotalProblemsCount() (int, error) {
+	var count int
+
+	query := `SELECT COUNT(*) FROM problems`
+
+	err := pg.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (pg *PostgresProblemStore) GetActiveProblemsCount() (int, error) {
+	var count int
+
+	query := `SELECT COUNT(*) FROM problems WHERE is_active = true`
+
+	err := pg.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (pg *PostgresProblemStore) GetAllProblemsForAdmin() ([]ProblemSummary, error) {
+	problems := []ProblemSummary{}
+
+	query := `
+	SELECT p.id, p.title, p.description, p.difficulty, p.is_active
+	FROM problems p
+	ORDER BY p.id DESC
+	`
+
+	rows, err := pg.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var problem ProblemSummary
+		err := rows.Scan(
+			&problem.ID,
+			&problem.Title,
+			&problem.Description,
+			&problem.Difficulty,
+			&problem.IsActive,
 		)
 		if err != nil {
 			return nil, err

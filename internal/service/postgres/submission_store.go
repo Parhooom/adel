@@ -33,6 +33,10 @@ type SubmissionStore interface {
 	DeleteSubmission(id int64) error
 	UpdateSubmission(submission *Submission) error
 	GetSubmissionOwner(submissionID int64) (int64, error)
+	GetSubmissionsByUserID(userID int64) ([]Submission, error)
+	GetUserSolvedProblemsCount(userID int64) (int, error)
+	GetUserSuccessRate(userID int64) (float64, error)
+	GetTotalSubmissionsCount() (int, error)
 }
 
 func (pg *PostgresSubmissionStore) CreateSubmission(submission *Submission) (*Submission, error) {

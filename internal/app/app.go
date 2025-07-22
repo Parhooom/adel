@@ -53,8 +53,8 @@ func NewApplication() (*Application, error) {
 
 	// handlers
 	problemHandler := api.NewProblemHandler(problemStore, logger)
-	submissionHandler := api.NewSubmissionHandler(submissionStore, rabbitmqClient, logger)
-	userHandler := api.NewUserHandler(userStore, logger)
+	submissionHandler := api.NewSubmissionHandler(submissionStore, problemStore, rabbitmqClient, logger)
+	userHandler := api.NewUserHandler(userStore, submissionStore, problemStore, logger)
 	tokenHandler := api.NewTokenHandler(tokenStore, userStore, logger)
 
 	// middlewares

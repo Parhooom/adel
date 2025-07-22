@@ -8,7 +8,19 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	_ "adel/docs"
 )
+
+// @title           Adel Online Judge API
+// @version         1.0
+// @description     This is a simple online judge
+// @host      localhost:8080
+// @BasePath  /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	var port int

@@ -31,6 +31,18 @@ type loginUserRequest struct {
 	Password string `json:"password"`
 }
 
+// HandleLoginUser authenticates user and returns token
+// @Summary      Login user
+// @Description  Authenticate user with username and password, returns JWT token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        credentials  body      loginUserRequest  true  "User login credentials"
+// @Success      201          {object}  utils.Envelope{token=token.Token}
+// @Failure      400          {object}  utils.Envelope{error=string}
+// @Failure      401          {object}  utils.Envelope{error=string}
+// @Failure      500          {object}  utils.Envelope{error=string}
+// @Router       /users/login [post]
 func (h *TokenHandler) HandleLoginUser(w http.ResponseWriter, r *http.Request) {
 	var req loginUserRequest
 
@@ -75,6 +87,17 @@ func (h *TokenHandler) HandleLoginUser(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, utils.Envelope{"token": token})
 }
 
+// HandleDeleteToken logs out user by deleting tokens
+// @Summary      Logout user
+// @Description  Logout user by deleting all their authentication tokens
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  utils.Envelope{message=string}
+// @Failure      401  {object}  utils.Envelope{error=string}
+// @Failure      500  {object}  utils.Envelope{error=string}
+// @Security     BearerAuth
+// @Router       /users/logout [delete]
 func (h *TokenHandler) HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user.IsAnonymous() {

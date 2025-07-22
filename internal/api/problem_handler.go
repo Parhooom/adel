@@ -23,6 +23,18 @@ func NewProblemHandler(problemStore postgres.ProblemStore, logger *log.Logger) *
 	}
 }
 
+// HandleGetProblemByID gets a problem by ID
+// @Summary      Get problem by ID
+// @Description  Get a single problem by its ID
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Problem ID"
+// @Success      200  {object}  utils.Envelope{problem=postgres.Problem}
+// @Failure      400  {object}  utils.Envelope{error=string}
+// @Failure      404  {object}  utils.Envelope{error=string}
+// @Failure      500  {object}  utils.Envelope{error=string}
+// @Router       /problems/{id} [get]
 func (ph *ProblemHandler) HandleGetProblemByID(w http.ResponseWriter, r *http.Request) {
 	problemID, err := utils.ReadIDParam(r)
 	if err != nil {
@@ -45,6 +57,19 @@ func (ph *ProblemHandler) HandleGetProblemByID(w http.ResponseWriter, r *http.Re
 	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"problem": problem})
 }
 
+// HandleCreateProblem creates a new problem
+// @Summary      Create problem
+// @Description  Create a new problem (admin only)
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Param        problem  body      postgres.Problem  true  "Problem object"
+// @Success      201      {object}  utils.Envelope{problem=postgres.Problem}
+// @Failure      400      {object}  utils.Envelope{error=string}
+// @Failure      401      {object}  utils.Envelope{error=string}
+// @Failure      500      {object}  utils.Envelope{error=string}
+// @Security     BearerAuth
+// @Router       /problems [post]
 func (ph *ProblemHandler) HandleCreateProblem(w http.ResponseWriter, r *http.Request) {
 	var problem postgres.Problem
 	err := json.NewDecoder(r.Body).Decode(&problem)
@@ -72,6 +97,21 @@ func (ph *ProblemHandler) HandleCreateProblem(w http.ResponseWriter, r *http.Req
 	utils.WriteJSON(w, http.StatusCreated, utils.Envelope{"problem": createdProblem})
 }
 
+// HandleDeleteProblemByID deletes a problem by ID
+// @Summary      Delete problem
+// @Description  Delete a problem by ID (admin only)
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Problem ID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  utils.Envelope{error=string}
+// @Failure      401  {object}  utils.Envelope{error=string}
+// @Failure      403  {object}  utils.Envelope{error=string}
+// @Failure      404  {object}  utils.Envelope{error=string}
+// @Failure      500  {object}  utils.Envelope{error=string}
+// @Security     BearerAuth
+// @Router       /problems/{id} [delete]
 func (ph *ProblemHandler) HandleDeleteProblemByID(w http.ResponseWriter, r *http.Request) {
 	problemID, err := utils.ReadIDParam(r)
 	if err != nil {
@@ -116,6 +156,22 @@ func (ph *ProblemHandler) HandleDeleteProblemByID(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// HandleUpdateProblemByID updates a problem by ID
+// @Summary      Update problem
+// @Description  Update a problem by ID (admin only)
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Param        id       path      int                              true   "Problem ID"
+// @Param        problem  body      object{title=string,description=string,difficulty=string,time_limit_ms=int,memory_limit_mb=int,is_active=bool,testcases=[]postgres.TestCase}  true  "Problem update object"
+// @Success      200      {object}  utils.Envelope{problem=postgres.Problem}
+// @Failure      400      {object}  utils.Envelope{error=string}
+// @Failure      401      {object}  utils.Envelope{error=string}
+// @Failure      403      {object}  utils.Envelope{error=string}
+// @Failure      404      {object}  utils.Envelope{error=string}
+// @Failure      500      {object}  utils.Envelope{error=string}
+// @Security     BearerAuth
+// @Router       /problems/{id} [put]
 func (ph *ProblemHandler) HandleUpdateProblemByID(w http.ResponseWriter, r *http.Request) {
 	problemID, err := utils.ReadIDParam(r)
 	if err != nil {
@@ -195,10 +251,41 @@ func (ph *ProblemHandler) HandleUpdateProblemByID(w http.ResponseWriter, r *http
 	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"problem": existingProblem})
 }
 
+// HandleGetAllProblems gets all active problems
+// @Summary      Get all problems
+// @Description  Get all active problems
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  utils.Envelope{problems=[]postgres.Problem}
+// @Failure      500  {object}  utils.Envelope{error=string}
+// @Router       /problems [get]
 func (ph *ProblemHandler) HandleGetAllProblems(w http.ResponseWriter, r *http.Request) {
 	problems, err := ph.problemStore.GetAllProblems()
 	if err != nil {
 		ph.logger.Printf("ERROR: GetAllProblems: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"problems": problems})
+}
+
+// HandleGetAllProblemsForAdmin gets all problems for admin
+// @Summary      Get all problems for admin
+// @Description  Get all problems including inactive ones (admin only)
+// @Tags         admin
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  utils.Envelope{problems=[]postgres.Problem}
+// @Failure      401  {object}  utils.Envelope{error=string}
+// @Failure      500  {object}  utils.Envelope{error=string}
+// @Security     BearerAuth
+// @Router       /admin/problems [get]
+func (ph *ProblemHandler) HandleGetAllProblemsForAdmin(w http.ResponseWriter, r *http.Request) {
+	problems, err := ph.problemStore.GetAllProblemsForAdmin()
+	if err != nil {
+		ph.logger.Printf("ERROR: GetAllProblemsForAdmin: %v", err)
 		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
 		return
 	}

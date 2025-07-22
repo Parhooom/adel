@@ -43,7 +43,7 @@ type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
 	PasswordHash password  `json:"-"`
-	IsAdmin      bool      `json:"-"`
+	IsAdmin      bool      `json:"is_admin"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -68,6 +68,9 @@ type UserStore interface {
 	CreateUser(user *User) error
 	GetUserByUsername(username string) (*User, error)
 	GetUserToken(tokenPlaintext string) (*User, error)
+	GetAllUsers() ([]User, error)
+	DeleteUser(id int64) error
+	GetTotalUsersCount() (int, error)
 }
 
 var (
@@ -147,4 +150,64 @@ func (s *PostgresUserStore) GetUserToken(tokenPlaintext string) (*User, error) {
 	}
 
 	return user, nil
+}
+
+func (s *PostgresUserStore) GetAllUsers() ([]User, error) {
+	users := []User{}
+
+	query := `
+	SELECT u.id, u.username, u.password_hash, u.is_admin, u.created_at, u.updated_at
+	FROM users u
+	ORDER BY u.created_at DESC
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user User
+		user.PasswordHash = password{}
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.PasswordHash.hash,
+			&user.IsAdmin,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+func (s *PostgresUserStore) DeleteUser(id int64) error {
+	query := `
+	DELETE FROM users
+	WHERE id = $1
+	`
+
+	result, err := s.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

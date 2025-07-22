@@ -1,7 +1,8 @@
 package rabbitmq
 
 import (
-	"fmt"
+	"adel/internal/service/postgres"
+	"encoding/json"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,6 +13,11 @@ const QUEUE_NAME = "submission_queue"
 type RabbitMQClient struct {
 	conn   *amqp.Connection
 	logger *log.Logger
+}
+
+type SubmissionJob struct {
+	Submission postgres.Submission `json:"submission"`
+	Problem    postgres.Problem    `json:"problem"`
 }
 
 func Open(logger *log.Logger) *RabbitMQClient {
@@ -54,7 +60,7 @@ func (rc *RabbitMQClient) Close() {
 	}
 }
 
-func (rc *RabbitMQClient) PublishSubmissionID(submissionID int64) error {
+func (rc *RabbitMQClient) PublishSubmissionJob(job *SubmissionJob) error {
 	ch, err := rc.conn.Channel()
 	if err != nil {
 		rc.logger.Printf("failed to open channel: %v", err)
@@ -62,15 +68,20 @@ func (rc *RabbitMQClient) PublishSubmissionID(submissionID int64) error {
 	}
 	defer ch.Close()
 
-	body := fmt.Sprintf("%d", submissionID)
+	body, err := json.Marshal(job)
+	if err != nil {
+		rc.logger.Printf("failed to marshal job: %v", err)
+		return err
+	}
+
 	err = ch.Publish(
 		"",         // exchange
 		QUEUE_NAME, // routing key
 		false,      // mandatory
 		false,      // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
+			ContentType: "application/json",
+			Body:        body,
 		},
 	)
 	if err != nil {
@@ -81,7 +92,7 @@ func (rc *RabbitMQClient) PublishSubmissionID(submissionID int64) error {
 	return nil
 }
 
-func (rc *RabbitMQClient) ConsumeSubmissionID() (*amqp.Channel, <-chan amqp.Delivery, error) {
+func (rc *RabbitMQClient) ConsumeSubmissionJobs() (*amqp.Channel, <-chan amqp.Delivery, error) {
 	ch, err := rc.conn.Channel()
 	if err != nil {
 		rc.logger.Printf("failed to open channel: %v", err)

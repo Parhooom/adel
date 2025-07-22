@@ -3,8 +3,8 @@ package rabbitmq
 import (
 	"adel/internal/service/judge"
 	"adel/internal/service/postgres"
+	"encoding/json"
 	"log"
-	"strconv"
 	"sync"
 )
 
@@ -45,7 +45,7 @@ func (w *Worker) Stop() {
 func (w *Worker) runWorker(id int) {
 	defer w.wg.Done()
 
-	ch, msgs, err := w.rabbitMQClient.ConsumeSubmissionID()
+	ch, msgs, err := w.rabbitMQClient.ConsumeSubmissionJobs()
 	if err != nil {
 		w.logger.Printf("worker %d: failed to start consuming: %v", id, err)
 		return
@@ -53,16 +53,17 @@ func (w *Worker) runWorker(id int) {
 	defer ch.Close()
 
 	for d := range msgs {
-		w.logger.Printf("worker %d: received submission ID: %s", id, d.Body)
+		w.logger.Printf("worker %d: received submission job", id)
 
-		submissionID, err := strconv.ParseInt(string(d.Body), 10, 64)
+		var job SubmissionJob
+		err := json.Unmarshal(d.Body, &job)
 		if err != nil {
-			w.logger.Printf("worker %d: error parsing submission ID: %v. rejecting message.", id, err)
+			w.logger.Printf("worker %d: error unmarshaling job: %v. rejecting message.", id, err)
 			d.Nack(false, false)
 			continue
 		}
 
-		w.processSubmission(submissionID)
+		w.processSubmission(&job)
 
 		d.Ack(false)
 	}
@@ -70,33 +71,22 @@ func (w *Worker) runWorker(id int) {
 	w.logger.Printf("worker %d: stopping", id)
 }
 
-func (w *Worker) processSubmission(submissionID int64) {
-	submission, err := w.submissionStore.GetSubmissionByID(submissionID)
-	if err != nil {
-		w.logger.Printf("failed to get submission %d from store: %v", submissionID, err)
-		return
-	}
+func (w *Worker) processSubmission(job *SubmissionJob) {
+	submission := &job.Submission
+	problem := &job.Problem
 
-	problem, err := w.problemStore.GetProblemByID(submission.ProblemID)
+	err := w.judgeClient.Judge(submission, problem)
 	if err != nil {
-		w.logger.Printf("failed to get problem %d for submission %d from store: %v", submission.ProblemID, submissionID, err)
-		return
-	}
-
-	err = w.judgeClient.Judge(submission, problem)
-	if err != nil {
-		w.logger.Printf("failed to judge submission %d: %v", submissionID, err)
-
+		w.logger.Printf("failed to judge submission %d: %v", submission.ID, err)
 		updateErr := w.submissionStore.UpdateSubmission(submission)
 		if updateErr != nil {
-			w.logger.Printf("failed to update submission %d with internal error status: %v", submissionID, updateErr)
+			w.logger.Printf("failed to update submission %d with internal error status: %v", submission.ID, updateErr)
 		}
-
 		return
 	}
 
 	err = w.submissionStore.UpdateSubmission(submission)
 	if err != nil {
-		w.logger.Printf("failed to update submission %d, error: %v", submissionID, err)
+		w.logger.Printf("failed to update submission %d, error: %v", submission.ID, err)
 	}
 }
